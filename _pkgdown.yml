@@ -10,6 +10,10 @@ navbar:
       href: https://github.com/CTU-Bern/redcaptools
       target: _blank
 
+navbar:
+  structure:
+    right: [search, github]
+
 reference:
 - title: Exporting data
   desc: >

@@ -4,17 +4,19 @@
 #' @param url address of the API
 #' @param content content to download
 #' @param ... other parameters passed to the API (see your REDCap API documentation for options)
+#' @param headers named list of http headers (unlikely to be required)
 #'
 #' @return dataframe
 #' @export
 #' @importFrom httr2 request req_headers req_body_form req_perform resp_status resp_body_string
 #' @importFrom magrittr %>%
 #' @importFrom utils read.csv
+#' @importFrom rlang !!!
 #'
 #' @examples
 #' # token <- "some_really_long_string_provided_by_REDCap"
 #' # redcap_export_tbl(token, "https://www.some_redcap_url.com/api/", "record")
-redcap_export_tbl <- function(token, url, content, ...){
+redcap_export_tbl <- function(token, url, content, ..., headers = NULL){
   check_token(token)
   check_url(url)
   check_content(content)
@@ -24,14 +26,19 @@ redcap_export_tbl <- function(token, url, content, ...){
     url <- paste0(url, "/")
   }
 
-  req <- httr2::request(url) %>%
-    httr2::req_headers() %>%
+  req <- httr2::request(url)
+  if(!is.null(headers)) {
+    req <- req |> httr2::req_headers(!!!headers)
+
+  } else {
+    req <- req |> httr2::req_headers()
+  }
+  req <- req |>
     httr2::req_body_form(token = token,
                          content = content,
-                         format = "csv",
-                         ...)
+                         format = "csv", ...)
 
-  resp <- req %>% httr2::req_perform()
+  resp <- req |>  httr2::req_perform()
   if(httr2::resp_status(resp) == 200){
     body <- resp %>% httr2::resp_body_string()
     if(nchar(body) > 1){
@@ -70,6 +77,7 @@ redcap_export_tbl <- function(token, url, content, ...){
 #' * `userRoleMapping` - user-roll mapping
 #' @inheritParams redcap_export_tbl
 #' @param tabs tables to export. `project` is always added.
+#' @param ... other options passed to [redcap_export_tbl]
 #' @note tables that are not relevant for non-longitudinal projects (e.g.
 #'   formEventMapping and event) are silently removed
 #' @return list of dataframes
@@ -114,6 +122,7 @@ redcap_export_meta <- function(token,
 #' @param remove_empty should empty rows be removed from the dataset (REDCap automatically
 #' creates all forms for an event when any form in the event is created)
 #' @param wait seconds to wait between API calls
+#' @param ... other options passed to [redcap_export_tbl]
 #'
 #' @return list of dataframes
 #' @export
@@ -168,7 +177,7 @@ redcap_export_byform <- function(token,
 
                    return(d)
 
-                 })
+                 }, simplify = FALSE)
 
   return(tabs)
 }
@@ -185,6 +194,7 @@ redcap_export_byform <- function(token,
 #' @param byform logical. Download data by form (see \link{redcap_export_byform})
 #' @param remove_empty when using byform: should empty rows be removed from the dataset (REDCap automatically
 #' creates all forms for an event when any form in the event is created)
+#' @param ... other options passed to [redcap_export_tbl]
 #'
 #' @return depending on \code{byform}, either a list of dataframes or a single dataframe
 #' @export
@@ -244,16 +254,18 @@ redcap_export_batch <- function(token,
                                    records = records,
                                    events = events,
                                    forms = sheet,
-                                   'fields[0]' = idvar) |>
+                                   'fields[0]' = idvar, ...) |>
             mutate(across(everything(), ~ str_replace_all(.,'"', "'")))
 
           if(remove_empty & !is.null(csv)) csv <- remove_empty_rows(csv)
-        } else {csv <- redcap_export_tbl(token,url,"record",
-                                         records = records,
-                                         forms = sheet,
-                                         'fields[0]' = idvar) |>
+        } else {
+          csv <- redcap_export_tbl(token, url, "record",
+                                   records = records,
+                                   forms = sheet,
+                                   'fields[0]' = idvar, ...) |>
           mutate(across(everything(), ~ str_replace_all(.,'"', "'")))
         }
+
 
         if (i == 1){
           write.table(csv, tempfile, sep = ",", row.names = FALSE, col.names = TRUE)
@@ -278,7 +290,7 @@ redcap_export_batch <- function(token,
       message(paste0("Downloading batch ",i, " of ",nbatch))
       records <- split_ids[[i]]
       records <- paste(records, collapse = ",")
-      csv <- redcap_export_tbl(token,url,"record",records = records) |>
+      csv <- redcap_export_tbl(token,url,"record",records = records, ...) |>
         mutate(across(everything(), ~ str_replace_all(.,'"', "'")))
 
       if (i == 1){

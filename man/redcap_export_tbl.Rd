@@ -4,7 +4,7 @@
 \alias{redcap_export_tbl}
 \title{Export tables from REDCap}
 \usage{
-redcap_export_tbl(token, url, content, ...)
+redcap_export_tbl(token, url, content, ..., headers = NULL)
 }
 \arguments{
 \item{token}{REDcap API token}
@@ -14,6 +14,8 @@ redcap_export_tbl(token, url, content, ...)
 \item{content}{content to download}
 
 \item{...}{other parameters passed to the API (see your REDCap API documentation for options)}
+
+\item{headers}{named list of http headers (unlikely to be required)}
 }
 \value{
 dataframe
